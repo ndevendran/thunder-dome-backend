@@ -46,17 +46,27 @@ exports.makeNotification = functions.firestore.document('/comments/{documentId}'
     functions.logger.log('This is our messageId: ', messageId);
 
     const messageExists = await admin.firestore().collection('messages').doc(messageId).get();
+    let message = null;
 
     if(messageExists) {
-      const message = messageExists.data();
-      if(message) {
-        functions.logger.log(`Creating notification for ${message.username}`, context.params.documentId);
-        return await admin.firestore().collection(`notifications`).doc(message.username).set({
-          title: `${comment.username} commented on your message`,
-          messageLink: `messages/${comment.parentId}`,
-          commentLink: `comments/${commentId}`,
-        }, { merge: true });
+      message = messageExists.data();
+    } else {
+      const commentExists = await admin.firestore().collection('comments').doc(messageId).get();
+      if(commentExists) {
+        message = commentExists.data();
       }
+    }
+
+    if(message) {
+      functions.logger.log(`Creating notification for ${message.username}`, context.params.documentId);
+      return await admin.firestore().collection(`notifications`).doc(message.username).set({
+        title: `${comment.username} commented on your message`,
+        messageLink: `messages/${comment.parentId}`,
+        commentLink: `comments/${commentId}`,
+      }, { merge: true });
+    } else {
+      functions.logger.log('Cant make notification for message or comment with id: ', messageId);
+      functions.logger.log('Message or comment does not exist');
     }
 
     return null;
